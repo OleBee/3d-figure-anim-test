@@ -2,19 +2,19 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8">
-  <title>Boy Figur – Animasjonstest</title>
+  <title>Fern / Boy – Animasjonstest</title>
   <style>
     body { margin: 0; overflow: hidden; background: #111; color: #eee; font-family: system-ui, sans-serif; }
     #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.75); padding: 12px 16px; border-radius: 8px; max-width: 380px; font-size: 14px; }
     #info h3 { margin: 0 0 8px 0; }
     #info p { margin: 4px 0; }
-    #error { color: #f88; white-space: pre-wrap; font-size: 12px; max-height: 120px; overflow: auto; }
+    #error { color: #f88; white-space: pre-wrap; font-size: 12px; max-height: 100px; overflow: auto; }
     canvas { display: block; }
   </style>
 </head>
 <body>
   <div id="info">
-    <h3>Boy-figur (night-mansion)</h3>
+    <h3>3D-figur (night-mansion)</h3>
     <p id="status">Laster modell...</p>
     <p>Dra for å rotere • Scroll for zoom</p>
     <div id="error"></div>
@@ -36,10 +36,10 @@
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
-    scene.fog = new THREE.Fog(0x111111, 10, 30);
+    scene.fog = new THREE.Fog(0x111111, 12, 35);
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.set(0, 1.5, 4);
+    camera.position.set(0, 1.6, 4.5);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -48,19 +48,19 @@
     document.body.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1, 0);
+    controls.target.set(0, 1.1, 0);
     controls.enableDamping = true;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const dir = new THREE.DirectionalLight(0xffffff, 1.4);
-    dir.position.set(5, 10, 7);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+    dir.position.set(5, 12, 8);
     dir.castShadow = true;
     scene.add(dir);
-    const hemi = new THREE.HemisphereLight(0xb0c4ff, 0x444444, 0.6);
+    const hemi = new THREE.HemisphereLight(0xb0c4ff, 0x333333, 0.6);
     scene.add(hemi);
 
     const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(5, 32),
+      new THREE.CircleGeometry(6, 32),
       new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1 })
     );
     ground.rotation.x = -Math.PI / 2;
@@ -77,80 +77,79 @@
       console.error(msg);
     }
 
-    async function loadBoy() {
-      statusEl.textContent = 'Henter base64...';
-      const resp = await fetch('boy_fbx.b64.txt');
-      if (!resp.ok) throw new Error(`HTTP ${resp.status} ved henting av base64`);
+    async function loadFBXFromBase64(filename, label, scale = 0.01) {
+      statusEl.textContent = `Henter ${label}...`;
+      const resp = await fetch(filename);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${filename}`);
       let b64 = await resp.text();
-      b64 = b64.replace(/\s/g, ''); // fjern all whitespace
-      if (b64.length < 10000) throw new Error(`base64 for kort (${b64.length} tegn)`);
+      b64 = b64.replace(/\s/g, '');
+      if (b64.length < 5000) throw new Error(`${label} base64 for kort`);
 
-      statusEl.textContent = 'Dekoder base64...';
       const binary = atob(b64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-      // Lag en Blob URL så FBXLoader kan bruke load() i stedet for parse()
       const blob = new Blob([bytes], { type: 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
 
-      statusEl.textContent = 'Laster FBX...';
       const loader = new FBXLoader();
       return new Promise((resolve, reject) => {
-        loader.load(
-          url,
-          (fbx) => {
-            URL.revokeObjectURL(url);
-            // Prøv flere skalaer – FBX kan være i cm eller meter
-            fbx.scale.setScalar(0.01);
-            fbx.position.y = 0;
-            fbx.traverse(c => {
-              if (c.isMesh) {
-                c.castShadow = true;
-                c.receiveShadow = true;
-                if (c.material) c.material.side = THREE.DoubleSide;
-              }
-            });
-            scene.add(fbx);
-            model = fbx;
-            statusEl.textContent = 'Boy.fbx lastet';
-            console.log('Boy loaded successfully', fbx);
-            resolve();
-          },
-          undefined,
-          (err) => {
-            URL.revokeObjectURL(url);
-            reject(err);
-          }
-        );
+        loader.load(url, (fbx) => {
+          URL.revokeObjectURL(url);
+          fbx.scale.setScalar(scale);
+          fbx.position.y = 0;
+          fbx.traverse(c => {
+            if (c.isMesh) {
+              c.castShadow = true;
+              c.receiveShadow = true;
+              if (c.material) c.material.side = THREE.DoubleSide;
+            }
+          });
+          scene.add(fbx);
+          model = fbx;
+          statusEl.textContent = `${label} lastet`;
+          console.log(label + ' loaded', fbx);
+          resolve();
+        }, undefined, (err) => {
+          URL.revokeObjectURL(url);
+          reject(err);
+        });
       });
     }
 
-    function loadFallback() {
-      statusEl.textContent = 'Laster fallback (Soldier)...';
+    function loadSoldier() {
+      statusEl.textContent = 'Laster Soldier fallback...';
       const loader = new GLTFLoader();
-      loader.load(
-        'https://threejs.org/examples/models/gltf/Soldier.glb',
-        (gltf) => {
-          const m = gltf.scene;
-          m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-          scene.add(m);
-          model = m;
-          mixer = new THREE.AnimationMixer(m);
-          if (gltf.animations.length) mixer.clipAction(gltf.animations[0]).play();
-          statusEl.textContent = 'Fallback: Soldier (Boy feilet)';
-        },
-        undefined,
-        (err) => showError('Fallback feilet også: ' + err.message)
-      );
+      loader.load('https://threejs.org/examples/models/gltf/Soldier.glb', (gltf) => {
+        const m = gltf.scene;
+        m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+        scene.add(m);
+        model = m;
+        mixer = new THREE.AnimationMixer(m);
+        if (gltf.animations.length) mixer.clipAction(gltf.animations[0]).play();
+        statusEl.textContent = 'Soldier (fallback)';
+      });
     }
 
-    loadBoy().catch(err => {
-      const msg = err.message || String(err);
-      showError('Boy.fbx feilet:\n' + msg);
-      statusEl.textContent = 'Boy feilet – bruker fallback';
-      loadFallback();
-    });
+    // Prøv Fern først, så Boy, så Soldier
+    async function loadPreferred() {
+      try {
+        await loadFBXFromBase64('fern_fbx.b64.txt', 'Fern', 0.01);
+        return;
+      } catch (e) {
+        console.warn('Fern failed:', e.message);
+      }
+      try {
+        await loadFBXFromBase64('boy_fbx.b64.txt', 'Boy', 0.01);
+        return;
+      } catch (e) {
+        console.warn('Boy failed:', e.message);
+        showError('Fern og Boy feilet:\n' + e.message);
+      }
+      loadSoldier();
+    }
+
+    loadPreferred();
 
     function animate() {
       requestAnimationFrame(animate);
@@ -158,8 +157,8 @@
       const t = clock.getElapsedTime();
       if (mixer) mixer.update(delta);
       if (model && !mixer) {
-        model.position.y = Math.sin(t * 1.8) * 0.05;
-        model.rotation.y = Math.sin(t * 0.35) * 0.25;
+        model.position.y = Math.sin(t * 1.6) * 0.04;
+        model.rotation.y = Math.sin(t * 0.3) * 0.2;
       }
       controls.update();
       renderer.render(scene, camera);
