@@ -18,6 +18,11 @@
     <p>Dra for å rotere • Scroll for zoom</p>
   </div>
 
+  <script src="boy_part1.js"></script>
+  <script src="boy_part2.js"></script>
+  <script src="boy_part3.js"></script>
+  <script src="boy_part4.js"></script>
+
   <script type="importmap">
   {
     "imports": {
@@ -69,11 +74,10 @@
     const clock = new THREE.Clock();
     const statusEl = document.getElementById('status');
 
-    async function loadBoyFromBase64() {
-      const resp = await fetch('boy_fbx.b64.txt');
-      if (!resp.ok) throw new Error('base64-fil mangler');
-      const b64 = (await resp.text()).trim();
-      if (b64.length < 1000) throw new Error('base64 er placeholder');
+    async function loadBoyFromParts() {
+      if (!window.BOY_PART1) throw new Error('Parts not loaded');
+      const b64 = (window.BOY_PART1 + window.BOY_PART2 + window.BOY_PART3 + window.BOY_PART4).trim();
+      if (b64.length < 100000) throw new Error('Incomplete base64');
       const binary = atob(b64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -85,7 +89,7 @@
       fbx.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
       scene.add(fbx);
       model = fbx;
-      statusEl.textContent = 'Boy.fbx lastet (procedural animasjon)';
+      statusEl.textContent = 'Boy.fbx lastet fra night-mansion';
       return true;
     }
 
@@ -100,15 +104,18 @@
         if (gltf.animations.length) {
           mixer.clipAction(gltf.animations[0]).play();
         }
-        statusEl.textContent = 'Demo-modell (Soldier) – Boy.fbx base64 mangler';
+        statusEl.textContent = 'Demo-modell (Soldier) – Boy parts mangler';
       });
     }
 
-    loadBoyFromBase64().catch(err => {
-      console.warn(err);
-      statusEl.textContent = 'Boy.fbx ikke klar – bruker demo-modell';
-      loadFallback();
-    });
+    // Wait a bit for scripts to load
+    setTimeout(() => {
+      loadBoyFromParts().catch(err => {
+        console.warn(err);
+        statusEl.textContent = 'Boy.fbx parts ikke klar – bruker demo';
+        loadFallback();
+      });
+    }, 100);
 
     function animate() {
       requestAnimationFrame(animate);
