@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Figure Anim Test – Boy</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; color: #eee; font-family: sans-serif; }
+    #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 6px; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <h3>Boy-figur (fra night-mansion)</h3>
+    <p>Dra for å rotere • Scroll for zoom</p>
+    <p>Animasjon: enkel idle/bob + rotasjon</p>
+  </div>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.2, 3);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.8, 0);
+    controls.enableDamping = true;
+
+    // Lights
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+    dir.position.set(5, 10, 5);
+    scene.add(dir);
+    const fill = new THREE.DirectionalLight(0x88aaff, 0.4);
+    fill.position.set(-5, 5, -5);
+    scene.add(fill);
+
+    // Ground
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(2, 32),
+      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    let model;
+    const clock = new THREE.Clock();
+
+    // Load embedded FBX (base64)
+    async function loadModel() {
+      const resp = await fetch('boy_fbx.b64.txt');
+      const b64 = await resp.text();
+      const bin = atob(b64);
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+
+      const loader = new FBXLoader();
+      const fbx = loader.parse(buf.buffer, '');
+      fbx.scale.setScalar(0.01); // FBX often in cm
+      fbx.position.y = 0;
+      scene.add(fbx);
+      model = fbx;
+
+      console.log('Model loaded', fbx);
+    }
+
+    loadModel().catch(err => {
+      console.error(err);
+      document.getElementById('info').innerHTML += '<p style="color:red">Feil ved lasting av modell: ' + err.message + '</p>';
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      if (model) {
+        model.position.y = Math.sin(t * 2) * 0.05;
+        model.rotation.y = Math.sin(t * 0.5) * 0.15;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
