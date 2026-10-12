@@ -5,7 +5,7 @@
   <title>Boy Figur – Animasjonstest</title>
   <style>
     body { margin: 0; overflow: hidden; background: #111; color: #eee; font-family: system-ui, sans-serif; }
-    #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 8px; max-width: 340px; }
+    #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 8px; max-width: 360px; }
     #info h3 { margin: 0 0 8px 0; }
     #info p { margin: 4px 0; font-size: 14px; }
     canvas { display: block; }
@@ -13,10 +13,9 @@
 </head>
 <body>
   <div id="info">
-    <h3>Boy-figur (night-mansion)</h3>
-    <p>Lastet fra Boy.fbx</p>
+    <h3>3D-figur animasjonstest</h3>
+    <p id="status">Laster modell...</p>
     <p>Dra for å rotere • Scroll for zoom</p>
-    <p>Animasjon: idle bob + mild rotasjon</p>
   </div>
 
   <script type="importmap">
@@ -31,6 +30,7 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
@@ -65,43 +65,57 @@
     ground.receiveShadow = true;
     scene.add(ground);
 
-    let model;
+    let model, mixer;
     const clock = new THREE.Clock();
+    const statusEl = document.getElementById('status');
 
-    async function loadBoy() {
-      try {
-        const resp = await fetch('boy_fbx.b64.txt');
-        if (!resp.ok) throw new Error('Kunne ikke hente base64-fil');
-        const b64 = (await resp.text()).trim();
-        const binary = atob(b64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    async function loadBoyFromBase64() {
+      const resp = await fetch('boy_fbx.b64.txt');
+      if (!resp.ok) throw new Error('base64-fil mangler');
+      const b64 = (await resp.text()).trim();
+      if (b64.length < 1000) throw new Error('base64 er placeholder');
+      const binary = atob(b64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
-        const loader = new FBXLoader();
-        const fbx = loader.parse(bytes.buffer, '');
-        fbx.scale.setScalar(0.01); // cm → m
-        fbx.position.y = 0;
-        fbx.traverse(c => {
-          if (c.isMesh) {
-            c.castShadow = true;
-            c.receiveShadow = true;
-          }
-        });
-        scene.add(fbx);
-        model = fbx;
-        console.log('Boy.fbx loaded', fbx);
-      } catch (err) {
-        console.error(err);
-        document.getElementById('info').innerHTML += `<p style="color:#f66">Feil: ${err.message}</p>`;
-      }
+      const loader = new FBXLoader();
+      const fbx = loader.parse(bytes.buffer, '');
+      fbx.scale.setScalar(0.01);
+      fbx.position.y = 0;
+      fbx.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      scene.add(fbx);
+      model = fbx;
+      statusEl.textContent = 'Boy.fbx lastet (procedural animasjon)';
+      return true;
     }
 
-    loadBoy();
+    function loadFallback() {
+      const loader = new GLTFLoader();
+      loader.load('https://threejs.org/examples/models/gltf/Soldier.glb', (gltf) => {
+        const m = gltf.scene;
+        m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+        scene.add(m);
+        model = m;
+        mixer = new THREE.AnimationMixer(m);
+        if (gltf.animations.length) {
+          mixer.clipAction(gltf.animations[0]).play();
+        }
+        statusEl.textContent = 'Demo-modell (Soldier) – Boy.fbx base64 mangler';
+      });
+    }
+
+    loadBoyFromBase64().catch(err => {
+      console.warn(err);
+      statusEl.textContent = 'Boy.fbx ikke klar – bruker demo-modell';
+      loadFallback();
+    });
 
     function animate() {
       requestAnimationFrame(animate);
+      const delta = clock.getDelta();
       const t = clock.getElapsedTime();
-      if (model) {
+      if (mixer) mixer.update(delta);
+      if (model && !mixer) {
         model.position.y = Math.sin(t * 1.8) * 0.04;
         model.rotation.y = Math.sin(t * 0.4) * 0.2;
       }
