@@ -2,10 +2,10 @@
 <html lang="no">
 <head>
   <meta charset="UTF-8">
-  <title>3D Figure Anim Test</title>
+  <title>Boy Figur – Animasjonstest</title>
   <style>
     body { margin: 0; overflow: hidden; background: #111; color: #eee; font-family: system-ui, sans-serif; }
-    #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 8px; max-width: 320px; }
+    #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 12px 16px; border-radius: 8px; max-width: 340px; }
     #info h3 { margin: 0 0 8px 0; }
     #info p { margin: 4px 0; font-size: 14px; }
     canvas { display: block; }
@@ -13,10 +13,10 @@
 </head>
 <body>
   <div id="info">
-    <h3>3D-figur animasjonstest</h3>
-    <p>Offentlig demo-modell (Three.js Soldier) med ekte animasjoner.</p>
+    <h3>Boy-figur (night-mansion)</h3>
+    <p>Lastet fra Boy.fbx</p>
     <p>Dra for å rotere • Scroll for zoom</p>
-    <p><strong>Din modell:</strong> Boy.fbx fra night-mansion ligger klar i repoet (som base64). Bytt til FBXLoader og last den for å animere din egen figur.</p>
+    <p>Animasjon: idle bob + mild rotasjon</p>
   </div>
 
   <script type="importmap">
@@ -30,14 +30,14 @@
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111);
-    scene.fog = new THREE.Fog(0x111111, 5, 20);
+    scene.fog = new THREE.Fog(0x111111, 8, 25);
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.5, 4);
+    camera.position.set(0, 1.4, 3.5);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -46,72 +46,65 @@
     document.body.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 1, 0);
+    controls.target.set(0, 0.9, 0);
     controls.enableDamping = true;
 
-    // Lights
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const dir = new THREE.DirectionalLight(0xffffff, 1.5);
-    dir.position.set(5, 10, 5);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.3);
+    dir.position.set(4, 8, 5);
     dir.castShadow = true;
     scene.add(dir);
-    const hemi = new THREE.HemisphereLight(0x88aaff, 0x444444, 0.6);
+    const hemi = new THREE.HemisphereLight(0xaaccff, 0x444444, 0.5);
     scene.add(hemi);
 
-    // Ground
     const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(5, 32),
+      new THREE.CircleGeometry(4, 32),
       new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    let mixer;
+    let model;
     const clock = new THREE.Clock();
 
-    // Load public animated model (Soldier from Three.js examples)
-    const loader = new GLTFLoader();
-    loader.load(
-      'https://threejs.org/examples/models/gltf/Soldier.glb',
-      (gltf) => {
-        const model = gltf.scene;
-        model.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
+    async function loadBoy() {
+      try {
+        const resp = await fetch('boy_fbx.b64.txt');
+        if (!resp.ok) throw new Error('Kunne ikke hente base64-fil');
+        const b64 = (await resp.text()).trim();
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        const loader = new FBXLoader();
+        const fbx = loader.parse(bytes.buffer, '');
+        fbx.scale.setScalar(0.01); // cm → m
+        fbx.position.y = 0;
+        fbx.traverse(c => {
+          if (c.isMesh) {
+            c.castShadow = true;
+            c.receiveShadow = true;
           }
         });
-        model.scale.setScalar(1);
-        scene.add(model);
-
-        // Animations
-        mixer = new THREE.AnimationMixer(model);
-        const clips = gltf.animations;
-        if (clips.length > 0) {
-          const action = mixer.clipAction(clips[0]); // Idle or first clip
-          action.play();
-          // Cycle through animations every 4 seconds for demo
-          let idx = 0;
-          setInterval(() => {
-            idx = (idx + 1) % clips.length;
-            mixer.stopAllAction();
-            mixer.clipAction(clips[idx]).reset().play();
-          }, 4000);
-        }
-        console.log('Loaded Soldier with', clips.length, 'animations');
-      },
-      undefined,
-      (err) => {
+        scene.add(fbx);
+        model = fbx;
+        console.log('Boy.fbx loaded', fbx);
+      } catch (err) {
         console.error(err);
-        document.getElementById('info').innerHTML += '<p style="color:#f66">Kunne ikke laste demo-modell.</p>';
+        document.getElementById('info').innerHTML += `<p style="color:#f66">Feil: ${err.message}</p>`;
       }
-    );
+    }
+
+    loadBoy();
 
     function animate() {
       requestAnimationFrame(animate);
-      const delta = clock.getDelta();
-      if (mixer) mixer.update(delta);
+      const t = clock.getElapsedTime();
+      if (model) {
+        model.position.y = Math.sin(t * 1.8) * 0.04;
+        model.rotation.y = Math.sin(t * 0.4) * 0.2;
+      }
       controls.update();
       renderer.render(scene, camera);
     }
