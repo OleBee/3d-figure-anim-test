@@ -2,32 +2,31 @@
 
 Testrepo for å animere 3D-figurer i nettleseren med **Three.js**.
 
-## Hva er her
+## Status
 
-- `index.html` – interaktiv viewer som laster **Boy.fbx** fra night-mansion og animerer den (idle bob + rotasjon)
-- `boy_fbx.b64.txt` – base64 av Boy.fbx (assets/models/figures_v2/Boy.fbx)
+Viewer-en er klar. Den prøver å laste **Boy.fbx** fra `boy_fbx.b64.txt`. Hvis filen er placeholder eller mangler, faller den automatisk tilbake til en offentlig Soldier-modell med ekte animasjoner.
+
+## Få din egen Boy.fbx inn
+
+Last ned den ferdige base64-filen (se chat) og erstatt `boy_fbx.b64.txt` i repoet:
+
+```bash
+# Etter at du har lastet ned boy_fbx.b64.txt
+git add boy_fbx.b64.txt
+git commit -m "Add real Boy.fbx base64"
+git push
+```
+
+Etter push vil siden bruke din modell.
 
 ## Se det live
 
-1. Gå til **Settings → Pages** i dette repoet
+1. Gå til **Settings → Pages**
 2. Source: Deploy from a branch → `main` / `/ (root)`
-3. Etter noen minutter: `https://olebee.github.io/3d-figure-anim-test/`
+3. URL: `https://olebee.github.io/3d-figure-anim-test/`
 
-## Hvis modellen ikke laster
+## Animasjoner
 
-`boy_fbx.b64.txt` må inneholde den faktiske base64-strengen. Du kan generere den lokalt:
+Det finnes egne animasjonsfiler (`Anim_Run.fbx`, `Anim_Fall.fbx` osv.) i `night-mansion`. De kan lastes med `AnimationMixer` når base64-en er på plass.
 
-```bash
-base64 -w 0 Boy.fbx > boy_fbx.b64.txt
-```
-
-og committe filen.
-
-FBX er ofte i cm, derfor `scale.setScalar(0.01)`.
-
-Det finnes også egne animasjonsfiler (Anim_Run.fbx etc.) i night-mansion som kan lastes med AnimationMixer.
-
-## Tips
-
-- GLB er bedre for web enn FBX.
-- Laget som test for OleBee.
+Laget som test for OleBee.
