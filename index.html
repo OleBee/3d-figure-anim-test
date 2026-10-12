@@ -13,15 +13,10 @@
 </head>
 <body>
   <div id="info">
-    <h3>3D-figur animasjonstest</h3>
+    <h3>Boy-figur (night-mansion)</h3>
     <p id="status">Laster modell...</p>
     <p>Dra for å rotere • Scroll for zoom</p>
   </div>
-
-  <script src="boy_part1.js"></script>
-  <script src="boy_part2.js"></script>
-  <script src="boy_part3.js"></script>
-  <script src="boy_part4.js"></script>
 
   <script type="importmap">
   {
@@ -74,23 +69,30 @@
     const clock = new THREE.Clock();
     const statusEl = document.getElementById('status');
 
-    async function loadBoyFromParts() {
-      if (!window.BOY_PART1) throw new Error('Parts not loaded');
-      const b64 = (window.BOY_PART1 + window.BOY_PART2 + window.BOY_PART3 + window.BOY_PART4).trim();
-      if (b64.length < 100000) throw new Error('Incomplete base64');
+    async function loadBoy() {
+      const resp = await fetch('boy_fbx.b64.txt');
+      if (!resp.ok) throw new Error('Kunne ikke hente base64-fil');
+      const b64 = (await resp.text()).trim();
+      if (b64.length < 10000) throw new Error('base64 for kort');
+
       const binary = atob(b64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
       const loader = new FBXLoader();
       const fbx = loader.parse(bytes.buffer, '');
-      fbx.scale.setScalar(0.01);
+      fbx.scale.setScalar(0.01); // cm → meter
       fbx.position.y = 0;
-      fbx.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      fbx.traverse(c => {
+        if (c.isMesh) {
+          c.castShadow = true;
+          c.receiveShadow = true;
+        }
+      });
       scene.add(fbx);
       model = fbx;
-      statusEl.textContent = 'Boy.fbx lastet fra night-mansion';
-      return true;
+      statusEl.textContent = 'Boy.fbx lastet';
+      console.log('Boy loaded', fbx);
     }
 
     function loadFallback() {
@@ -104,18 +106,15 @@
         if (gltf.animations.length) {
           mixer.clipAction(gltf.animations[0]).play();
         }
-        statusEl.textContent = 'Demo-modell (Soldier) – Boy parts mangler';
+        statusEl.textContent = 'Fallback: Soldier-modell';
       });
     }
 
-    // Wait a bit for scripts to load
-    setTimeout(() => {
-      loadBoyFromParts().catch(err => {
-        console.warn(err);
-        statusEl.textContent = 'Boy.fbx parts ikke klar – bruker demo';
-        loadFallback();
-      });
-    }, 100);
+    loadBoy().catch(err => {
+      console.error(err);
+      statusEl.textContent = 'Feil med Boy.fbx – bruker fallback';
+      loadFallback();
+    });
 
     function animate() {
       requestAnimationFrame(animate);
